@@ -1,0 +1,4 @@
+zig/
+bin/*.pdb
+output/*
+!output/.gitkeep
