@@ -12,7 +12,11 @@ zig/zig.exe cc -O2 -o bin/sudoku_core.exe src/sudoku_core.c
 
 ## 生成器
 
-### CLI 示例
+### 原理
+
+先填满一个合法棋盘（`--attempts` 控制不同种子的尝试次数），再逐格挖空并校验唯一解（`--removal_passes` 控制每轮扫描移除的轮数）。结果受随机性影响，参数大只扩大搜索空间，不保证更优。
+
+### 生成示例
 
 ```bash
 python src/sudoku_generator.py                                  # 默认 9×9
@@ -41,7 +45,7 @@ python src/sudoku_generator.py --submatrix_side 2 --attempts 5  # 4×4 快速生
 
 ## 求解器
 
-### CLI 示例
+### 求解示例
 
 ```bash
 # 直接解生成器产出的文件
