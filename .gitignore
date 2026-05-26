@@ -1,4 +1,5 @@
 zig/
+bin/*.exe
 bin/*.pdb
 output/*
 !output/.gitkeep
