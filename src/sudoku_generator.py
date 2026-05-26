@@ -13,11 +13,18 @@ ROOT = Path(__file__).parent.parent
 CORE = ROOT / "bin" / "sudoku_core.exe"
 
 
-def generate(submatrix_side=3, exist_ratio=0.38):
+def generate(submatrix_side=3, exist_ratio=0.38, attempts=50, removal_passes=50):
     """生成数独，返回棋盘二维列表"""
     n = submatrix_side * submatrix_side
     result = subprocess.run(
-        [str(CORE), "gen", str(n), str(exist_ratio)],
+        [
+            str(CORE),
+            "gen",
+            str(n),
+            str(exist_ratio),
+            str(attempts),
+            str(removal_passes),
+        ],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -44,13 +51,25 @@ if __name__ == "__main__":
         default=0.38,
         help="保留比例 0.05~0.95，越小越难（默认 0.38）",
     )
+    parser.add_argument(
+        "--attempts",
+        type=int,
+        default=50,
+        help="生成尝试次数，越多越可能达到目标 ratio（默认 50）",
+    )
+    parser.add_argument(
+        "--removal_passes",
+        type=int,
+        default=50,
+        help="每次尝试的移除扫描轮数，越多移除越多格子（默认 50）",
+    )
     args = parser.parse_args()
 
     k = args.submatrix_side
     n = k * k
     ratio = args.exist_ratio
 
-    board = generate(k, ratio)
+    board = generate(k, ratio, args.attempts, args.removal_passes)
     empty = sum(row.count(0) for row in board)
     actual_ratio = round(1 - empty / (n * n), 2)
 

@@ -1,9 +1,9 @@
 /*
  * n×n 数独求解/生成核心（C 实现）
- * 编译: gcc -O2 -o sudoku_core.exe sudoku_core.c
+ * 编译: zig/zig.exe cc -O2 -o bin/sudoku_core.exe src/sudoku_core.c
  * 用法:
  *   sudoku_core.exe solve   < input.txt        # 求解（输出所有解，上限5）
- *   sudoku_core.exe gen N difficulty            # 生成题目
+ *   sudoku_core.exe gen N ratio [attempts]      # 生成题目
  */
 
 #include <stdio.h>
@@ -301,8 +301,11 @@ static void fill_board(void) {
     }
 }
 
-static int gen_main(int n, double ratio) {
-    srand((unsigned)time(NULL));
+static int best_board[MAXN][MAXN];
+static int best_keep;
+
+/* 单次尝试：生成完整解 + 移除格子，返回实际保留数 */
+static int try_generate_puzzle(int n, double ratio, int removal_passes) {
     detect_sub(n);
     clear_masks();
 
@@ -324,14 +327,8 @@ static int gen_main(int n, double ratio) {
     for (int r = 0; r < N; r++)
         for (int c = 0; c < N; c++)
             if (!board[r][c]) full = 0;
-    if (!full) return 1;
+    if (!full) return N * N;
 
-    /* 保存完整解 */
-    int full_sol[MAXN][MAXN];
-    memcpy(full_sol, board, sizeof(board));
-
-    /* 随机移除格子，保证唯一解 */
-    /* ratio: 保留比例，如 0.38 表示保留 38% 格子 */
     if (ratio < 0.05) ratio = 0.05;
     if (ratio > 0.95) ratio = 0.95;
     int total = N * N;
@@ -342,7 +339,7 @@ static int gen_main(int n, double ratio) {
     /* 多轮尝试移除，每轮随机顺序 */
     int removed = 0;
     int cells[MAXN * MAXN][2];
-    for (int round = 0; round < 10 && removed < to_remove; round++) {
+    for (int round = 0; round < removal_passes && removed < to_remove; round++) {
         int idx = 0;
         for (int r = 0; r < N; r++)
             for (int c = 0; c < N; c++)
@@ -369,11 +366,31 @@ static int gen_main(int n, double ratio) {
         }
     }
 
+    return total - removed;
+}
+
+static int gen_main(int n, double ratio, int attempts, int removal_passes) {
+    int total = n * n;
+    int target_keep = (int)(total * (ratio < 0.05 ? 0.05 : ratio > 0.95 ? 0.95 : ratio));
+    if (target_keep < n) target_keep = n;
+
+    best_keep = total + 1;
+
+    for (int a = 0; a < attempts; a++) {
+        srand((unsigned)time(NULL) + a * 1000);
+        int actual = try_generate_puzzle(n, ratio, removal_passes);
+        if (actual < best_keep) {
+            best_keep = actual;
+            memcpy(best_board, board, sizeof(board));
+            if (best_keep <= target_keep) break;
+        }
+    }
+
     /* 移除不足时警告 */
-    if (removed < to_remove) {
-        double actual = (double)(total - removed) / total;
-        fprintf(stderr, "警告: 目标 ratio=%.2f（移除 %d 格），实际 ratio=%.2f（移除 %d 格）\n",
-                ratio, to_remove, actual, removed);
+    if (best_keep > target_keep) {
+        double actual_ratio = (double)best_keep / total;
+        fprintf(stderr, "警告: 目标 ratio=%.2f（保留 %d 格），实际 ratio=%.2f（保留 %d 格）\n",
+                ratio, target_keep, actual_ratio, best_keep);
     }
 
     /* 输出 */
@@ -381,7 +398,7 @@ static int gen_main(int n, double ratio) {
     for (int r = 0; r < N; r++) {
         for (int c = 0; c < N; c++) {
             if (c) putchar(' ');
-            printf("%d", board[r][c]);
+            printf("%d", best_board[r][c]);
         }
         putchar('\n');
     }
@@ -406,7 +423,9 @@ int main(int argc, char **argv) {
     } else if (strcmp(argv[1], "gen") == 0) {
         int n = argc > 2 ? atoi(argv[2]) : 9;
         double ratio = argc > 3 ? atof(argv[3]) : 0.38;
-        return gen_main(n, ratio);
+        int attempts = argc > 4 ? atoi(argv[4]) : 10;
+        int removal_passes = argc > 5 ? atoi(argv[5]) : 50;
+        return gen_main(n, ratio, attempts, removal_passes);
     }
     return 0;
 }
